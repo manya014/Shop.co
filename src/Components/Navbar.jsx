@@ -1,4 +1,3 @@
-// src/components/Navbar.jsx
 import React from "react";
 import { FiShoppingCart, FiUser } from "react-icons/fi";
 import { IoIosArrowDown } from "react-icons/io";
@@ -8,8 +7,10 @@ import { NavLink } from "react-router-dom"; // Make sure 'react-router-dom' is i
 const Navbar = () => {
   // Define links data for cleaner rendering
   const navLinks = [
-    { name: "Browse Collection", path: "/dashboard", dropdown: true }, // Placeholder for the 'Shop' dropdown
-    { name: "Manage Collection", path: "/admin" },
+    // Correctly routes to the product listing page
+    { name: "Browse Collection", path: "/dashboard", dropdown: true }, 
+    // Correctly routes to the admin product management page
+    { name: "Manage Collection", path: "/admin" }, 
   ];
 
   // Function to apply active styles
@@ -29,7 +30,7 @@ const Navbar = () => {
 
       {/* Center: Links & Search */}
       <div className="flex items-center space-x-12">
-        {/* Navigation Links */}
+        {/* Navigation Links (Desktop) */}
         <div className="hidden lg:flex items-center space-x-8">
           {navLinks.map((link) => (
             <div key={link.name} className="flex items-center">
@@ -41,23 +42,24 @@ const Navbar = () => {
           ))}
         </div>
 
-        {/* Search Bar (Added to enhance the center area, as seen in many e-commerce sites) */}
-        <div className="hidden md:flex items-center bg-gray-100 rounded-full px-4 py-2 w-72">
-          <FiSearch className="text-xl text-gray-500 mr-2" />
-          <input
-            type="text"
-            placeholder="Search for products..."
-            className="bg-transparent text-sm w-full focus:outline-none"
-          />
-        </div>
+        {/* Search Bar (Desktop) */}
+        
       </div>
 
-      {/* Right: Icons */}
+      {/* Right: Icons (Cart and User) */}
       <div className="flex items-center space-x-6 text-xl text-gray-800 flex-shrink-0">
         {/* Search icon for mobile/small screens */}
         <FiSearch className="cursor-pointer hover:text-black md:hidden" />
-        <FiShoppingCart className="cursor-pointer hover:text-black" />
-        <FiUser className="cursor-pointer hover:text-black" />
+        
+        {/* Cart Icon - NOW ROUTES TO /cart */}
+        <NavLink to="/cart" title="Shopping Cart">
+            <FiShoppingCart className="cursor-pointer hover:text-black" />
+        </NavLink>
+        
+        {/* User Icon - Placeholder for Profile/Login route */}
+        <NavLink to="/login" title="User Account"> 
+            <FiUser className="cursor-pointer hover:text-black" />
+        </NavLink>
       </div>
     </nav>
   );

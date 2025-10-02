@@ -1,48 +1,98 @@
-import { Routes, Route, useLocation } from 'react-router-dom';
-import LoginPage from './Pages/LoginPage';
-import SignUpPage from './Pages/SignUpPage';
-import { AuthProvider } from './Context/AuthProvider';
-import Navbar from './components/Navbar';
-import HomePage from './pages/HomePage';
-import Footer from './Components/Footer';
-import Dashboard from './Pages/Dashboard';
-import ProductPage from './Pages/ProductsPage'; // <-- NEW IMPORT: Import the Product Page component
-import CartPage from './pages/CartPage';
-import Checkout from './Pages/Checkout';
-import Admin from './Pages/Admin';
+import { Routes, Route, useLocation } from "react-router-dom";
+import LoginPage from "./Pages/LoginPage";
+import SignUpPage from "./Pages/SignUpPage";
+import AdminLoginPage from "./Pages/AdminLoginPage"; // Assuming this exists
+import { AuthProvider } from "./Context/AuthProvider";
+import Navbar from "./components/Navbar";
+import HomePage from "./pages/HomePage";
+import Footer from "./Components/Footer";
+import Dashboard from "./Pages/Dashboard";
+import ProductPage from "./Pages/ProductsPage";
+import CartPage from "./pages/CartPage";
+import Checkout from "./Pages/Checkout";
+import Admin from "./Pages/Admin";
+import Logout from "./Pages/Logout";
+import ProtectedRoute from "./components/ProtectedRoute"; 
+import { ThemeProvider } from "./Context/ThemeContext";// The general auth check component
 
 export default function App() {
-  const location = useLocation(); // Hook to get current path
-
-  // Hide Navbar and Footer on login & signup pages
-  const hideHeaderFooter = location.pathname === '/login' || location.pathname === '/signup';
+  const location = useLocation();
+  
+  // Find paths that hide the header/footer
+  const hideHeaderFooter =
+    location.pathname === "/login" || 
+    location.pathname === "/signup" ||
+    location.pathname === "/admin-login"; // Hide on admin login page
 
   return (
     <div className="font-sans">
+      <ThemeProvider>
       <AuthProvider>
-        {/* Navbar only appears on pages other than login/signup */}
-        {!hideHeaderFooter && <Navbar />} 
-        
+        {!hideHeaderFooter && <Navbar />}
+
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
           
-          {/* Dashboard (Product Listing Page) */}
-          <Route path="/dashboard" element={<Dashboard />} /> 
-          <Route path="/cart" element={<CartPage />} /> 
-          <Route path="/checkout" element={<Checkout />} /> 
-          
-          {/* NEW ROUTE: Product Description Page (PDP) */}
-          <Route path="/product/:productId" element={<ProductPage />} /> 
+          {/* Admin Specific Routes (Public access for the login form) */}
+          <Route path="/admin-login" element={<AdminLoginPage />} /> 
 
-          <Route path="/admin" element={<Admin />} />
-          {/* Add other routes below */}
+          {/* ------------------------------------------------------------- */}
+          {/* Protected Routes (Redirect to /login by default) */}
+          {/* ------------------------------------------------------------- */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/cart"
+            element={
+              <ProtectedRoute>
+                <CartPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <Checkout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/logout"
+            element={
+              <ProtectedRoute>
+                <Logout />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ------------------------------------------------------------- */}
+          {/* Admin Route (Protected by simple login, redirects to /admin-login) */}
+          {/* ------------------------------------------------------------- */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute redirectPath="/admin-login"> 
+                <Admin />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Public Product Page */}
+          <Route path="/product/:productId" element={<ProductPage />} />
         </Routes>
-        
-        {/* Footer also hidden on login/signup pages */}
-        {!hideHeaderFooter && <Footer />} 
+
+        {!hideHeaderFooter && <Footer />}
       </AuthProvider>
+      </ThemeProvider>
     </div>
   );
 }

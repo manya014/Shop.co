@@ -1,20 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaShippingFast, FaCreditCard, FaCheckCircle, FaSpinner } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
+import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth';
+import { db, auth } from '../firebase'; // Import auth and db instances
 
-// Dummy data for the order summary
-const dummyOrderSummary = {
-  subtotal: 155.00,
-  shipping: 10.00,
-  tax: 7.75,
-  total: 172.75,
-  items: [
-    { id: 1, title: 'Graphic T-Shirt', quantity: 1, price: 55.00 },
-    { id: 2, title: 'Slim Fit Jeans', quantity: 1, price: 100.00 },
-  ],
-};
+// Global variables for secure Firestore path construction and initial auth
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-// --- Step Components ---
+// --- Step Components (Unchanged) ---
 
 const ShippingStep = ({ onNext }) => (
   <div className="space-y-6">
@@ -67,7 +62,7 @@ const PaymentStep = ({ onNext, onBack }) => (
   </div>
 );
 
-const ReviewStep = ({ onPlaceOrder, onBack }) => (
+const ReviewStep = ({ onPlaceOrder, onBack, total }) => ( // Added 'total' prop
   <div className="space-y-6">
     <h3 className="text-xl font-bold mb-4">3. Review and Place Order</h3>
     
@@ -87,7 +82,7 @@ const ReviewStep = ({ onPlaceOrder, onBack }) => (
         &larr; Back to Payment
       </button>
       <button onClick={onPlaceOrder} className="bg-green-600 text-white px-8 py-3 rounded-full font-bold hover:bg-green-700 transition-colors">
-        Place Order (${dummyOrderSummary.total.toFixed(2)})
+        Place Order (${total.toFixed(2)}) {/* Use dynamic total */}
       </button>
     </div>
   </div>
@@ -95,32 +90,94 @@ const ReviewStep = ({ onPlaceOrder, onBack }) => (
 
 const ProcessingStep = () => (
     <div className="flex flex-col items-center justify-center h-64 text-center">
-        <FaSpinner className="animate-spin text-6xl text-blue-600 mb-6" />
-        <h3 className="text-2xl font-bold text-black">Processing Payment...</h3>
-        <p className="text-gray-600 mt-2">Please wait, do not close this window.</p>
+      <FaSpinner className="animate-spin text-6xl text-blue-600 mb-6" />
+      <h3 className="text-2xl font-bold text-black">Processing Payment...</h3>
+      <p className="text-gray-600 mt-2">Please wait, do not close this window.</p>
     </div>
 );
 
 const SuccessStep = ({ onNewOrder }) => (
     <div className="flex flex-col items-center justify-center h-64 text-center">
-        <FaCheckCircle className="text-8xl text-green-500 mb-6" />
-        <h3 className="text-3xl font-extrabold text-black">Order Placed Successfully!</h3>
-        <p className="text-gray-600 mt-2">Your order number is #XYZ123. A confirmation email has been sent.</p>
-        <button 
-            onClick={onNewOrder} 
-            className="mt-8 bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors"
-        >
-            Continue Shopping
-        </button>
+      <FaCheckCircle className="text-8xl text-green-500 mb-6" />
+      <h3 className="text-3xl font-extrabold text-black">Order Placed Successfully!</h3>
+      <p className="text-gray-600 mt-2">Your order number is #XYZ123. A confirmation email has been sent.</p>
+      <button 
+        onClick={onNewOrder} 
+        className="mt-8 bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors"
+      >
+        Continue Shopping
+      </button>
     </div>
 );
 
 
 // --- Main Checkout Component ---
 const CheckoutPage = () => {
-  const [step, setStep] = useState(1); // 1: Shipping, 2: Payment, 3: Review, 4: Processing, 5: Success
+  const [step, setStep] = useState(1);
   const navigate = useNavigate();
+  
+  // --- New State for Cart Data ---
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  
+  // --- Firebase Setup (Same as CartPage) ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            setUserId(user.uid);
+            setAuthReady(true);
+        } else if (initialAuthToken) {
+            try {
+                const credential = await signInWithCustomToken(auth, initialAuthToken);
+                setUserId(credential.user.uid);
+            } catch (error) {
+                await signInAnonymously(auth);
+            } finally {
+                setAuthReady(true);
+            }
+        } else {
+            await signInAnonymously(auth);
+            setAuthReady(true);
+        }
+    });
+    return () => unsubscribe();
+  }, []);
 
+  // --- Real-time Firestore Listener for Cart ---
+  useEffect(() => {
+    if (!authReady || !userId) return;
+
+    const cartCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'cart');
+
+    const unsubscribe = onSnapshot(cartCollectionRef, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        quantity: Number(doc.data().quantity || 1),
+        price: Number(doc.data().price || 0) 
+      }));
+      setCartItems(items);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore cart snapshot error:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [authReady, userId]);
+
+
+  // --- Dynamic Calculations ---
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingCost = subtotal > 0 ? 10.00 : 0.00;
+  const taxRate = 0.05; 
+  const tax = subtotal * taxRate;
+  const total = subtotal + shippingCost + tax;
+
+
+  // --- Step Handlers ---
   const stepComponents = [
     { id: 1, title: 'Shipping', icon: FaShippingFast, component: ShippingStep },
     { id: 2, title: 'Payment', icon: FaCreditCard, component: PaymentStep },
@@ -128,6 +185,10 @@ const CheckoutPage = () => {
   ];
 
   const handlePlaceOrder = () => {
+    if (cartItems.length === 0) {
+        alert("Your cart is empty! Cannot place order.");
+        return;
+    }
     // 1. Move to Processing state
     setStep(4); 
     
@@ -139,8 +200,7 @@ const CheckoutPage = () => {
   };
   
   const handleNewOrder = () => {
-      // Return to the first step or navigate home/dashboard
-      navigate('/');
+      navigate('/dashboard');
   };
 
   const getStepComponent = () => {
@@ -152,9 +212,31 @@ const CheckoutPage = () => {
   
   const CurrentStepComponent = getStepComponent();
 
-  // If the step is Processing (4) or Success (5), we hide the step indicator and summary (optional)
   const isFinalStep = step >= 4;
 
+  if (loading || !authReady) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <FaSpinner className="animate-spin text-3xl text-blue-600 mr-2" />
+        <div className="text-xl font-medium text-gray-700">Loading cart data...</div>
+      </div>
+    );
+  }
+  
+  if (cartItems.length === 0 && step < 4) {
+      return (
+          <div className="max-w-4xl mx-auto py-20 text-center">
+              <h2 className="text-3xl font-bold mb-4 text-red-600">Cart Empty!</h2>
+              <p className="text-gray-600">You must have items in your cart to proceed to checkout.</p>
+              <button 
+                  onClick={() => navigate('/dashboard')}
+                  className="mt-6 bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors"
+              >
+                  Go to Products
+              </button>
+          </div>
+      );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -164,7 +246,7 @@ const CheckoutPage = () => {
         <div className="flex flex-col lg:flex-row gap-10">
           
           {/* === Left Column: Steps and Form/Status === */}
-          <div className={`lg:w-2/3 bg-white p-8 rounded-xl shadow-lg border border-gray-100 ${isFinalStep ? 'lg:col-span-3 w-full' : ''}`}>
+          <div className={`lg:w-2/3 bg-white p-8 rounded-xl shadow-lg border border-gray-100 ${isFinalStep ? 'w-full lg:flex-none lg:w-3/4 mx-auto' : ''}`}>
             
             {/* Step Indicator (Hidden on Processing/Success) */}
             {!isFinalStep && (
@@ -203,6 +285,7 @@ const CheckoutPage = () => {
                 onNext={() => setStep(step + 1)}
                 onBack={() => setStep(step - 1)}
                 onPlaceOrder={handlePlaceOrder}
+                total={total} // Pass total to ReviewStep
               />
             )}
             
@@ -214,8 +297,8 @@ const CheckoutPage = () => {
                 <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
                   <h2 className="text-2xl font-bold mb-6">Order Summary</h2>
                   
-                  <div className="space-y-4 mb-6 border-b pb-4">
-                    {dummyOrderSummary.items.map(item => (
+                  <div className="space-y-4 mb-6 border-b pb-4 max-h-48 overflow-y-auto">
+                    {cartItems.map(item => (
                       <div key={item.id} className="flex justify-between text-sm text-gray-700">
                         <span>{item.title} (x{item.quantity})</span>
                         <span>${(item.price * item.quantity).toFixed(2)}</span>
@@ -226,21 +309,21 @@ const CheckoutPage = () => {
                   <div className="space-y-3 text-gray-700">
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
-                      <span className="font-medium">${dummyOrderSummary.subtotal.toFixed(2)}</span>
+                      <span className="font-medium">${subtotal.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Shipping:</span>
-                      <span className="font-medium">${dummyOrderSummary.shipping.toFixed(2)}</span>
+                      <span className="font-medium">${shippingCost.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Taxes:</span>
-                      <span className="font-medium">${dummyOrderSummary.tax.toFixed(2)}</span>
+                      <span>Taxes ({taxRate * 100}%):</span>
+                      <span className="font-medium">${tax.toFixed(2)}</span>
                     </div>
                   </div>
                   
                   <div className="border-t border-gray-300 mt-6 pt-4 flex justify-between items-center text-xl font-extrabold text-black">
                     <span>Total:</span>
-                    <span>${dummyOrderSummary.total.toFixed(2)}</span>
+                    <span>${total.toFixed(2)}</span>
                   </div>
                 </div>
 

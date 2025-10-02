@@ -1,80 +1,81 @@
 import React, { useState } from 'react';
 import { FaStar } from 'react-icons/fa';
-/**
- * A reusable component for the stats section.
- * @param {string} count The main large number/count.
- * @param {string} label The text description for the count.
- */
+import useTheme from '../Hooks/useTheme'; // make sure path is correct
+
 const StatItem = ({ count, label }) => (
   <div className="text-left">
-    <p className="text-3xl font-extrabold text-black">{count}</p>
-    <p className="text-gray-600 text-sm mt-1">{label}</p>
+    <p className="text-3xl font-extrabold text-black dark:text-white">{count}</p>
+    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">{label}</p>
   </div>
 );
 
-/**
- * The HomePage component.
- */
 const HomePage = () => {
   const [hovered, setHovered] = useState(null);
-
-  // Array of brand names to display at the bottom
+  const { theme } = useTheme(); // get current theme
   const brands = ['ELECTRONICS', 'MAKEUP', 'CLOTHING', 'UTILITIES', 'ACCESORIES'];
 
+  const isDark = theme === 'dark';
+
   return (
-    <div className="w-full bg-gray-50">
-      {/* Upper Content Area */}
+    <div className={`w-full transition-colors duration-300 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      {/* Upper Content */}
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row relative overflow-hidden pt-12 lg:pt-20 xl:pt-24 pb-12">
-        
-        {/* Left Content Column */}
+        {/* Left Column */}
         <div className="flex-1 px-4 sm:px-6 lg:px-8 z-10 py-10 lg:py-0">
-          {/* Main Title */}
-          <h1 className="text-5xl sm:text-7xl font-extrabold text-black leading-tight max-w-xl">
+          <h1 className={`text-5xl sm:text-7xl font-extrabold leading-tight max-w-xl ${isDark ? 'text-white' : 'text-black'}`}>
             FIND PRODUCTS THAT MATCHES YOUR STYLE
           </h1>
 
-          {/* Description */}
-          <p className="text-gray-600 max-w-md mt-6 text-base">
+          <p className={`max-w-md mt-6 text-base ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
             Browse through our diverse range of meticulously crafted garments, designed to bring out your individuality and cater to your sense of style.
           </p>
 
-          {/* Call to Action Button */}
-          <button className="mt-8 bg-black text-white font-semibold px-8 py-4 rounded-lg hover:bg-gray-800 transition-colors duration-200">
+          <button
+            className={`mt-8 font-semibold px-8 py-4 rounded-lg transition-colors duration-200 ${
+              isDark
+                ? 'bg-white text-black hover:bg-gray-200'
+                : 'bg-black text-white hover:bg-gray-800'
+            }`}
+          >
             Shop Now
           </button>
 
-          {/* Statistics Section */}
-          <div className="flex space-x-10 mt-12 pt-4 border-t border-gray-300">
+          <div className={`flex space-x-10 mt-12 pt-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>
             <StatItem count="200+" label="International Brands" />
             <StatItem count="2,000+" label="High-Quality Products" />
             <StatItem count="30,000+" label="Happy Customers" />
           </div>
         </div>
 
-        {/* Right Image Column */}
+        {/* Right Column - Image */}
         <div className="flex-1 relative min-h-[400px] lg:min-h-0">
-          <div 
+          <div
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
             style={{
-              backgroundImage: 'url(/beautiful-pieces-woman-modeling.png)', 
+              backgroundImage: isDark
+                ? 'url(/beautiful-pieces-woman-modeling-dark.png)'
+                : 'url(/beautiful-pieces-woman-modeling.png)',
               backgroundPosition: '50% 10%',
             }}
           />
-
-          {/* Star decorations */}
-          <span className="absolute top-10 right-4 lg:right-10 text-6xl text-black transform rotate-45"><FaStar/></span>
-          <span className="absolute bottom-1/3 left-1/2 -ml-8 text-4xl text-black transform rotate-45"><FaStar></FaStar></span>
+          {/* Star Decorations */}
+          <span className={`absolute top-10 right-4 lg:right-10 text-6xl transform rotate-45 ${isDark ? 'text-white' : 'text-black'}`}>
+            <FaStar />
+          </span>
+          <span className={`absolute bottom-1/3 left-1/2 -ml-8 text-4xl transform rotate-45 ${isDark ? 'text-white' : 'text-black'}`}>
+            <FaStar />
+          </span>
         </div>
       </div>
 
-      {/* Brand Logos Section */}
-      <div className="bg-black py-6 lg:py-8 mt-12">
+      {/* Brand Logos */}
+      <div className={`py-6 lg:py-8 mt-12 transition-colors duration-300 ${isDark ? 'bg-gray-800' : 'bg-black'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center space-x-4">
             {brands.map((brand, index) => (
               <h2
                 key={index}
-                className={`text-white text-3xl sm:text-4xl font-extrabold tracking-wider ${brand === 'PRADA' ? 'text-opacity-100' : 'text-opacity-80'}`}
+                className={`text-3xl sm:text-4xl font-extrabold tracking-wider ${isDark ? 'text-gray-200' : 'text-white'} text-opacity-80`}
               >
                 {brand}
               </h2>
@@ -84,47 +85,54 @@ const HomePage = () => {
       </div>
 
       {/* Interactive Hover Panels */}
-     <div className="relative h-64 sm:h-[500px] w-full max-w-6xl bg-white overflow-hidden rounded-xl shadow-sm px-6 sm:px-10 mx-auto my-10">
-        {/* Center Logo and Tagline */}
+      <div
+        className={`relative h-64 sm:h-[500px] w-full max-w-6xl overflow-hidden rounded-xl shadow-sm px-6 sm:px-10 mx-auto my-10 transition-colors duration-300 ${
+          isDark ? 'bg-gray-800 shadow-lg' : 'bg-white'
+        }`}
+      >
+        {/* Center Logo */}
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none transition-opacity duration-500 text-center px-4">
-
-          <div className="text-6xl font-extrabold tracking-wide text-black">
-        SHOP.CO
-      </div>
+          <div className={`text-6xl font-extrabold tracking-wide ${isDark ? 'text-white' : 'text-black'}`}>
+            SHOP.CO
+          </div>
         </div>
 
-        {/* Left Expandable Panel */}
+        {/* Left Panel */}
         <div
           onMouseEnter={() => setHovered('left')}
           onMouseLeave={() => setHovered(null)}
           className={`absolute top-0 left-0 h-full transition-all duration-500 ease-in-out
             ${hovered === 'left' ? 'w-full z-30' : 'w-20 z-20'}
-            bg-[#080808] cursor-pointer flex items-center justify-center overflow-hidden`}
+            cursor-pointer flex items-center justify-center overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-900'}`}
         >
           <img
-            src="/image11.png"
+            src={isDark ? '/image11-dark.png' : '/image11.png'}
             alt="Fashion"
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500
               ${hovered === 'left' ? 'opacity-100' : 'opacity-0'}`}
           />
-          <h2 className="text-sm sm:text-xl font-bold text-[#ffffff] rotate-90 z-10 whitespace-nowrap">Trendy Fashion</h2>
+          <h2 className={`text-sm sm:text-xl font-bold rotate-90 z-10 whitespace-nowrap ${isDark ? 'text-gray-200' : 'text-white'}`}>
+            Trendy Fashion
+          </h2>
         </div>
 
-        {/* Right Expandable Panel */}
+        {/* Right Panel */}
         <div
           onMouseEnter={() => setHovered('right')}
           onMouseLeave={() => setHovered(null)}
           className={`absolute top-0 right-0 h-full transition-all duration-500 ease-in-out
             ${hovered === 'right' ? 'w-full z-30' : 'w-20 z-20'}
-            bg-[#080808] cursor-pointer flex items-center justify-center overflow-hidden`}
+            cursor-pointer flex items-center justify-center overflow-hidden ${isDark ? 'bg-gray-700' : 'bg-gray-900'}`}
         >
           <img
-            src="/image111.png"
+            src={isDark ? '/image111-dark.png' : '/image111.png'}
             alt="Utility"
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500
               ${hovered === 'right' ? 'opacity-100' : 'opacity-0'}`}
           />
-          <h2 className="text-sm sm:text-xl font-bold text-[#ffffff] rotate-90 z-10 whitespace-nowrap">Daily Utility</h2>
+          <h2 className={`text-sm sm:text-xl font-bold rotate-90 z-10 whitespace-nowrap ${isDark ? 'text-gray-200' : 'text-white'}`}>
+            Daily Utility
+          </h2>
         </div>
       </div>
     </div>

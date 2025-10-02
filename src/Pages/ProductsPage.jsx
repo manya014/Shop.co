@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; // Import useParams
+import { useParams, useNavigate } from 'react-router-dom';
 import { FaStar, FaCheck } from 'react-icons/fa';
 import { FiPlus, FiMinus } from 'react-icons/fi';
+import { db, auth } from '../firebase'; // Import for addToCart logic
+import { doc, setDoc, getDoc, collection } from "firebase/firestore";
+
+// Global variable for secure Firestore path construction
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
 /**
  * Renders the rating stars based on the score.
@@ -25,12 +30,13 @@ const Rating = ({ score }) => {
  * Main Product Description Page Component
  */
 const ProductPage = () => {
-  const { productId } = useParams(); // Get product ID from URL
+  const { productId } = useParams();
   const navigate = useNavigate();
   
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notification, setNotification] = useState(null); 
   
   // State for UI controls
   const [selectedColor, setSelectedColor] = useState('#6B8E23'); 
@@ -52,7 +58,8 @@ const ProductPage = () => {
         // Reset controls based on new product
         setQuantity(1);
         setSelectedSize('Large');
-        setSelectedColor(data.meta.barcode === '4897055230004' ? '#333333' : '#6B8E23'); // Simple color guess based on dummy data
+        // Simple color guess based on dummy data
+        setSelectedColor(data.meta?.barcode === '4897055230004' ? '#333333' : '#6B8E23'); 
       })
       .catch((err) => {
         console.error(err);
@@ -61,16 +68,59 @@ const ProductPage = () => {
       .finally(() => {
         setLoading(false);
       });
-  }, [productId]); // Rerun when the product ID in the URL changes
+  }, [productId]);
 
   // --- Handlers ---
   const handleQuantityChange = (delta) => {
     setQuantity((prev) => Math.max(1, prev + delta));
   };
 
-  const handleAddToCart = () => {
-    // Implement actual add-to-cart logic here (e.g., call the addToCart function)
-    alert(`Added ${quantity} of ${product.title} to cart!`);
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleAddToCart = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      showNotification("Please log in to add items to cart.", 'error');
+      return;
+    }
+
+    try {
+      const cartCollectionRef = collection(db, "artifacts", appId, "users", user.uid, "cart");
+      const cartRef = doc(cartCollectionRef, product.id.toString());
+      const docSnap = await getDoc(cartRef);
+
+      const itemToAdd = {
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        thumbnail: product.thumbnail,
+        category: product.category,
+        color: selectedColor,
+        size: selectedSize,
+      };
+
+      if (docSnap.exists()) {
+        const currentData = docSnap.data();
+        await setDoc(cartRef, {
+          ...itemToAdd,
+          quantity: currentData.quantity + quantity,
+        }, { merge: true });
+      } else {
+        await setDoc(cartRef, { ...itemToAdd, quantity: quantity });
+      }
+
+      showNotification(`${quantity}x ${product.title} added to cart!`);
+
+    } catch (err) {
+      console.error("Error adding to cart:", err);
+      const errorMessage = err.message.includes('permission') 
+        ? "Permission Denied. Check security rules." 
+        : "Failed to add item to cart.";
+      showNotification(errorMessage, 'error');
+    }
   };
   
   const goBack = () => navigate(-1); // Function to go back to the dashboard
@@ -90,6 +140,17 @@ const ProductPage = () => {
   // --- Rendering ---
   return (
     <div className="min-h-screen bg-white">
+      {/* Notification Bar */}
+      {notification && (
+          <div 
+              className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-xl text-white ${
+                  notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+              }`}
+          >
+              {notification.message}
+          </div>
+      )}
+
       {/* Breadcrumbs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-sm text-gray-500">
         <span className="hover:text-black cursor-pointer" onClick={() => navigate('/')}>Home</span> &gt;{' '}
@@ -98,17 +159,17 @@ const ProductPage = () => {
       </div>
 
       {/* Main Product Layout */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 pt-6 grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 pt-6 grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-10">
         
         {/* === Left Column: Image Gallery === */}
-        <div className="lg:col-span-2 flex flex-col md:flex-row gap-6">
+        <div className="lg:col-span-2 flex flex-col md:flex-row gap-4 md:gap-6">
           
-          {/* Thumbnail Selector */}
-          <div className="order-2 md:order-1 flex md:flex-col space-x-3 md:space-x-0 md:space-y-3 justify-center md:justify-start">
+          {/* Thumbnail Selector (Vertical on MD+, Horizontal on Mobile) */}
+          <div className="order-2 md:order-1 flex flex-row md:flex-col space-x-2 md:space-x-0 md:space-y-3 overflow-x-auto pb-2 md:pb-0">
             {product.images.slice(0, 4).map((src, index) => (
               <div 
                 key={index}
-                className={`w-20 h-20 sm:w-28 sm:h-28 rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
+                className={`flex-shrink-0 w-20 h-20 sm:w-28 sm:h-28 rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
                   mainImage === src ? 'border-black' : 'border-gray-200 hover:border-gray-400'
                 }`}
                 onClick={() => setMainImage(src)}
@@ -118,13 +179,13 @@ const ProductPage = () => {
             ))}
           </div>
 
-          {/* Main Image */}
-          <div className="order-1 md:order-2 flex-grow max-w-full rounded-xl overflow-hidden shadow-lg">
+          {/* Main Image (Center) */}
+          <div className="order-1 md:order-2 flex-grow max-w-full rounded-xl overflow-hidden shadow-xl">
             <img 
               src={mainImage} 
               alt={product.title} 
               className="w-full h-full object-cover" 
-              style={{ minHeight: '400px' }}
+              style={{ minHeight: '300px' }}
             />
           </div>
         </div>
@@ -165,10 +226,10 @@ const ProductPage = () => {
 
           <div className="border-t border-gray-200 pt-6 space-y-6">
             
-            {/* Color Selection (Using Mock Data) */}
+            {/* Color Selection (Mock Data) */}
             <div>
               <p className="text-lg font-semibold text-gray-800 mb-3">Select Colors</p>
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap gap-3">
                 {mockColors.map((color) => (
                   <div
                     key={color.name}
@@ -190,7 +251,7 @@ const ProductPage = () => {
               </div>
             </div>
 
-            {/* Size Selection (Using Mock Data) */}
+            {/* Size Selection (Mock Data) */}
             <div>
               <p className="text-lg font-semibold text-gray-800 mb-3">Choose Size</p>
               <div className="flex flex-wrap gap-3">
@@ -211,9 +272,9 @@ const ProductPage = () => {
             </div>
           </div>
 
-          {/* Quantity and Add to Cart Button */}
+          {/* Quantity and Add to Cart Button (Stacked on mobile) */}
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <div className="flex items-center justify-between border border-gray-300 rounded-full w-full sm:w-40 h-14 overflow-hidden">
+            <div className="flex items-center justify-between border border-gray-300 rounded-full w-full sm:w-40 h-14 overflow-hidden flex-shrink-0">
               <button
                 className="p-4 hover:bg-gray-100 transition-colors h-full"
                 onClick={() => handleQuantityChange(-1)}

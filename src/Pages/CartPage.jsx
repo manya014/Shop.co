@@ -1,258 +1,259 @@
-import React, { useState } from 'react';
-import { FaShippingFast, FaCreditCard, FaCheckCircle, FaSpinner } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { getFirestore, collection, doc, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged, signInAnonymously, signInWithCustomToken } from 'firebase/auth'; 
+import { FiTrash2, FiPlus, FiMinus } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom'; // <-- NEW IMPORT
+// NOTE: Removed 'initializeApp' import
 
-// Dummy data for the order summary
-const dummyOrderSummary = {
-  subtotal: 155.00,
-  shipping: 10.00,
-  tax: 7.75,
-  total: 172.75,
-  items: [
-    { id: 1, title: 'Graphic T-Shirt', quantity: 1, price: 55.00 },
-    { id: 2, title: 'Slim Fit Jeans', quantity: 1, price: 100.00 },
-  ],
-};
+// Global variables provided by the Canvas environment
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-// --- Step Components ---
+// Get the services using the default initialized app (assuming initialization occurs elsewhere)
+const db = getFirestore(); 
+const auth = getAuth(); 
 
-const ShippingStep = ({ onNext }) => (
-  <div className="space-y-6">
-    <h3 className="text-xl font-bold mb-4">1. Shipping Information</h3>
-    <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <input type="text" placeholder="Full Name" className="p-3 border rounded-lg" required />
-      <input type="email" placeholder="Email Address" className="p-3 border rounded-lg" required />
-      <input type="text" placeholder="Street Address" className="p-3 border rounded-lg col-span-full" required />
-      <input type="text" placeholder="City" className="p-3 border rounded-lg" required />
-      <input type="text" placeholder="State / Province" className="p-3 border rounded-lg" required />
-      <input type="text" placeholder="Zip / Postal Code" className="p-3 border rounded-lg" required />
-    </form>
-    <button onClick={onNext} className="mt-6 bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
-      Continue to Payment
-    </button>
-  </div>
-);
 
-const PaymentStep = ({ onNext, onBack }) => (
-  <div className="space-y-6">
-    <h3 className="text-xl font-bold mb-4">2. Payment Method</h3>
-    <div className="bg-gray-100 p-6 rounded-xl space-y-4">
-      <label className="flex items-center space-x-3 p-3 border border-blue-500 bg-white rounded-lg cursor-pointer shadow-md">
-        <input type="radio" name="paymentMethod" defaultChecked />
-        <span className="font-semibold">Credit/Debit Card (Visa, MasterCard)</span>
-      </label>
-      <label className="flex items-center space-x-3 p-3 border border-gray-200 bg-white rounded-lg cursor-pointer">
-        <input type="radio" name="paymentMethod" />
-        <span className="font-semibold">PayPal</span>
-      </label>
-    </div>
+// Component to display a single item in the cart
+const CartItem = ({ item, userId, dbInstance }) => {
     
-    <form className="space-y-4">
-      <input type="text" placeholder="Card Number" className="p-3 border rounded-lg w-full" required />
-      <input type="text" placeholder="Name on Card" className="p-3 border rounded-lg w-full" required />
-      <div className="grid grid-cols-3 gap-4">
-        <input type="text" placeholder="MM/YY" className="p-3 border rounded-lg" required />
-        <input type="text" placeholder="CVC" className="p-3 border rounded-lg" required />
-      </div>
-    </form>
-    
-    <div className="flex justify-between pt-4">
-      <button onClick={onBack} className="text-gray-600 hover:text-black font-semibold">
-        &larr; Back to Shipping
-      </button>
-      <button onClick={onNext} className="bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors">
-        Review Order
-      </button>
-    </div>
-  </div>
-);
+  const cartItemRef = doc(collection(dbInstance, 'artifacts', appId, 'users', userId, 'cart'), item.id.toString());
 
-const ReviewStep = ({ onPlaceOrder, onBack }) => (
-  <div className="space-y-6">
-    <h3 className="text-xl font-bold mb-4">3. Review and Place Order</h3>
-    
-    <div className="border p-4 rounded-xl bg-white shadow-sm">
-      <h4 className="font-semibold mb-2">Ship To:</h4>
-      <p className="text-sm text-gray-700">John Doe</p>
-      <p className="text-sm text-gray-700">123 Commerce St, New York, NY 10001</p>
-    </div>
+  // Update quantity in Firestore
+  const updateQuantity = async (delta) => {
+    const newQuantity = Math.max(1, item.quantity + delta);
+    if (newQuantity === item.quantity) return; 
 
-    <div className="border p-4 rounded-xl bg-white shadow-sm">
-      <h4 className="font-semibold mb-2">Pay With:</h4>
-      <p className="text-sm text-gray-700">Visa ending in **** 1234</p>
-    </div>
-
-    <div className="flex justify-between pt-4">
-      <button onClick={onBack} className="text-gray-600 hover:text-black font-semibold">
-        &larr; Back to Payment
-      </button>
-      <button onClick={onPlaceOrder} className="bg-green-600 text-white px-8 py-3 rounded-full font-bold hover:bg-green-700 transition-colors">
-        Place Order (${dummyOrderSummary.total.toFixed(2)})
-      </button>
-    </div>
-  </div>
-);
-
-const ProcessingStep = () => (
-    <div className="flex flex-col items-center justify-center h-64 text-center">
-        <FaSpinner className="animate-spin text-6xl text-blue-600 mb-6" />
-        <h3 className="text-2xl font-bold text-black">Processing Payment...</h3>
-        <p className="text-gray-600 mt-2">Please wait, do not close this window.</p>
-    </div>
-);
-
-const SuccessStep = ({ onNewOrder }) => (
-    <div className="flex flex-col items-center justify-center h-64 text-center">
-        <FaCheckCircle className="text-8xl text-green-500 mb-6" />
-        <h3 className="text-3xl font-extrabold text-black">Order Placed Successfully!</h3>
-        <p className="text-gray-600 mt-2">Your order number is #XYZ123. A confirmation email has been sent.</p>
-        <button 
-            onClick={onNewOrder} 
-            className="mt-8 bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors"
-        >
-            Continue Shopping
-        </button>
-    </div>
-);
-
-
-// --- Main Checkout Component ---
-const CheckoutPage = () => {
-  const [step, setStep] = useState(1); // 1: Shipping, 2: Payment, 3: Review, 4: Processing, 5: Success
-  const navigate = useNavigate();
-
-  const stepComponents = [
-    { id: 1, title: 'Shipping', icon: FaShippingFast, component: ShippingStep },
-    { id: 2, title: 'Payment', icon: FaCreditCard, component: PaymentStep },
-    { id: 3, title: 'Review', icon: FaCheckCircle, component: ReviewStep },
-  ];
-
-  const handlePlaceOrder = () => {
-    // 1. Move to Processing state
-    setStep(4); 
-    
-    // 2. Simulate API/Payment processing delay (3 seconds)
-    setTimeout(() => {
-        // 3. Move to Success state
-        setStep(5);
-    }, 3000); 
-  };
-  
-  const handleNewOrder = () => {
-      // Return to the first step or navigate home/dashboard
-      navigate('/');
+    try {
+      await updateDoc(cartItemRef, {
+        quantity: newQuantity,
+      });
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+    }
   };
 
-  const getStepComponent = () => {
-      if (step === 4) return ProcessingStep;
-      if (step === 5) return () => <SuccessStep onNewOrder={handleNewOrder} />;
-      
-      return stepComponents.find(s => s.id === step)?.component;
+  // Remove item from Firestore
+  const removeItem = async () => {
+    try {
+      await deleteDoc(cartItemRef);
+    } catch (error) {
+      console.error("Error removing item:", error);
+    }
   };
-  
-  const CurrentStepComponent = getStepComponent();
-
-  // If the step is Processing (4) or Success (5), we hide the step indicator and summary (optional)
-  const isFinalStep = step >= 4;
-
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl font-extrabold text-black mb-12">Secure Checkout</h1>
-        
-        <div className="flex flex-col lg:flex-row gap-10">
-          
-          {/* === Left Column: Steps and Form/Status === */}
-          <div className={`lg:w-2/3 bg-white p-8 rounded-xl shadow-lg border border-gray-100 ${isFinalStep ? 'lg:col-span-3 w-full' : ''}`}>
-            
-            {/* Step Indicator (Hidden on Processing/Success) */}
-            {!isFinalStep && (
-                <div className="flex justify-between items-center mb-10 pb-6 border-b border-gray-200">
-                {stepComponents.map((s, index) => (
-                    <div key={s.id} className="flex flex-col items-center relative">
-                    <div 
-                        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-colors duration-300 ${
-                        step === s.id 
-                            ? 'bg-black text-white shadow-lg'
-                            : step > s.id 
-                            ? 'bg-green-500 text-white' 
-                            : 'bg-gray-200 text-gray-600'
-                        }`}
-                    >
-                        <s.icon className="w-5 h-5" />
-                    </div>
-                    <p className={`mt-2 text-sm font-medium ${step >= s.id ? 'text-black' : 'text-gray-500'}`}>{s.title}</p>
-                    
-                    {index < stepComponents.length - 1 && (
-                        <div 
-                        className={`absolute left-full top-5 w-16 h-0.5 transform -translate-x-1/2 transition-colors duration-300 ${
-                            step > s.id ? 'bg-green-500' : 'bg-gray-200'
-                        }`}
-                        style={{ transform: 'translateX(-50%)' }}
-                        ></div>
-                    )}
-                    </div>
-                ))}
-                </div>
-            )}
-
-            {/* Current Step Component */}
-            {CurrentStepComponent && (
-              <CurrentStepComponent
-                onNext={() => setStep(step + 1)}
-                onBack={() => setStep(step - 1)}
-                onPlaceOrder={handlePlaceOrder}
-              />
-            )}
-            
-          </div>
-          
-          {/* === Right Column: Order Summary (Hidden on Success) === */}
-          {!isFinalStep && (
-              <div className="lg:w-1/3 h-fit">
-                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-100">
-                  <h2 className="text-2xl font-bold mb-6">Order Summary</h2>
-                  
-                  <div className="space-y-4 mb-6 border-b pb-4">
-                    {dummyOrderSummary.items.map(item => (
-                      <div key={item.id} className="flex justify-between text-sm text-gray-700">
-                        <span>{item.title} (x{item.quantity})</span>
-                        <span>${(item.price * item.quantity).toFixed(2)}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-3 text-gray-700">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span className="font-medium">${dummyOrderSummary.subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Shipping:</span>
-                      <span className="font-medium">${dummyOrderSummary.shipping.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Taxes:</span>
-                      <span className="font-medium">${dummyOrderSummary.tax.toFixed(2)}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="border-t border-gray-300 mt-6 pt-4 flex justify-between items-center text-xl font-extrabold text-black">
-                    <span>Total:</span>
-                    <span>${dummyOrderSummary.total.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-gray-200 rounded-xl text-sm text-gray-600">
-                  Your data is encrypted. All transactions are secure.
-                </div>
-              </div>
-          )}
+    <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-b-0">
+      {/* Product Info */}
+      <div className="flex items-center space-x-4 flex-1 min-w-0">
+        <img src={item.thumbnail} alt={item.title} className="w-20 h-20 object-cover rounded-lg flex-shrink-0" />
+        <div className="flex flex-col min-w-0">
+          <h3 className="font-semibold text-lg text-black truncate">{item.title}</h3>
+          <p className="text-gray-500 text-sm">{item.category}</p>
+          <p className="text-xl font-bold text-black mt-1">${(item.price * item.quantity).toFixed(2)}</p>
         </div>
+      </div>
+      
+      {/* Quantity Controls */}
+      <div className="flex items-center space-x-4 flex-shrink-0">
+        <div className="flex items-center border border-gray-300 rounded-full">
+          <button 
+            onClick={() => updateQuantity(-1)} 
+            disabled={item.quantity <= 1}
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-l-full disabled:opacity-50 transition-colors"
+            aria-label="Decrease quantity"
+          >
+            <FiMinus />
+          </button>
+          <span className="px-4 font-medium text-black">{item.quantity}</span>
+          <button 
+            onClick={() => updateQuantity(1)} 
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded-r-full transition-colors"
+            aria-label="Increase quantity"
+          >
+            <FiPlus />
+          </button>
+        </div>
+        
+        {/* Remove Button */}
+        <button 
+          onClick={removeItem} 
+          className="p-3 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-colors"
+          aria-label="Remove item"
+        >
+          <FiTrash2 />
+        </button>
       </div>
     </div>
   );
 };
 
-export default CheckoutPage;
+
+// Main Cart Page Component
+const CartPage = () => {
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  
+  const navigate = useNavigate(); // <-- INITIALIZE NAVIGATE
+
+  // 1. Authentication Setup
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            setUserId(user.uid);
+            setAuthReady(true);
+        } else if (initialAuthToken) {
+            try {
+                const credential = await signInWithCustomToken(auth, initialAuthToken);
+                setUserId(credential.user.uid);
+            } catch (error) {
+                console.error("Custom token sign-in failed, falling back to anonymous:", error);
+                await signInAnonymously(auth);
+            } finally {
+                setAuthReady(true);
+            }
+        } else {
+            // Fallback for anonymous sign-in if no user/token
+            try {
+                const { user: anonymousUser } = await signInAnonymously(auth);
+                setUserId(anonymousUser.uid);
+            } catch (error) {
+                console.error("Anonymous sign-in failed:", error);
+            } finally {
+                setAuthReady(true);
+            }
+        }
+    });
+
+    return () => unsubscribe(); // Cleanup auth listener
+  }, []);
+
+  // 2. Real-time Firestore Listener
+  useEffect(() => {
+    if (!authReady || !userId) return; // Wait for authentication
+
+    setLoading(true);
+    
+    // Path: /artifacts/{appId}/users/{userId}/cart
+    const cartCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'cart');
+
+    // Set up real-time listener for the cart items
+    const unsubscribe = onSnapshot(cartCollectionRef, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        // Ensure quantity and price are numbers for calculation
+        quantity: Number(doc.data().quantity || 1),
+        price: Number(doc.data().price || 0) 
+      }));
+      setCartItems(items);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore cart snapshot error:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe(); // Cleanup snapshot listener
+  }, [authReady, userId]);
+
+  // --- Calculations ---
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shippingCost = subtotal > 0 ? 10.00 : 0.00; // Example shipping rule
+  const taxRate = 0.05; // 5% tax example
+  const tax = subtotal * taxRate;
+  const total = subtotal + shippingCost + tax;
+
+  // --- Checkout Handler ---
+  const handleProceedToCheckout = () => {
+    if (cartItems.length === 0) {
+      alert("Your cart is empty! Add items before proceeding to checkout."); // Placeholder alert
+      return;
+    }
+    // Navigate to the checkout page
+    navigate('/checkout');
+  };
+
+
+  if (loading || !authReady) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-xl font-medium text-gray-700">Loading your cart...</div>
+      </div>
+    );
+  }
+
+  if (cartItems.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto py-20 text-center">
+        <h2 className="text-3xl font-bold mb-4">Your Cart is Empty!</h2>
+        <p className="text-gray-600">Start shopping now to fill it up.</p>
+        <button 
+          onClick={() => navigate('/dashboard')}
+          className="mt-6 bg-black text-white px-8 py-3 rounded-full hover:bg-gray-800 transition-colors"
+        >
+          Go to Products
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+      <h1 className="text-4xl font-extrabold text-black mb-10">Shopping Cart</h1>
+      
+      <div className="flex flex-col lg:flex-row gap-10">
+        
+        {/* === Left: Cart Items List === */}
+        <div className="lg:w-2/3 bg-white p-6 rounded-xl shadow-lg border border-gray-100">
+          <div className="divide-y divide-gray-100">
+            {cartItems.map((item) => (
+              <CartItem key={item.id} item={item} userId={userId} dbInstance={db} />
+            ))}
+          </div>
+        </div>
+        
+        {/* === Right: Summary === */}
+        <div className="lg:w-1/3 bg-gray-50 p-6 rounded-xl shadow-lg border border-gray-100 h-fit">
+          <h2 className="text-2xl font-bold mb-6">Order Summary</h2>
+          
+          <div className="space-y-3 text-gray-700">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span className="font-medium">${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Shipping:</span>
+              <span className="font-medium">${shippingCost.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Taxes ({(taxRate * 100).toFixed(0)}%):</span>
+              <span className="font-medium">${tax.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div className="border-t border-gray-300 mt-6 pt-4 flex justify-between items-center text-xl font-extrabold text-black">
+            <span>Total:</span>
+            <span>${total.toFixed(2)}</span>
+          </div>
+          
+          <button 
+            onClick={handleProceedToCheckout} // <-- ATTACHED HANDLER HERE
+            className="w-full mt-8 bg-green-600 text-white font-semibold py-3 rounded-full hover:bg-green-700 transition-colors"
+          >
+            Proceed to Checkout
+          </button>
+        </div>
+      </div>
+      
+      {/* Display user ID for debugging/sharing (MANDATORY) */}
+      <div className="mt-10 text-sm text-gray-400">
+          Your Firestore Cart ID: <span className="font-mono text-xs">{userId}</span>
+      </div>
+    </div>
+  );
+};
+
+export default CartPage;
