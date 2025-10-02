@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useAuthStore from "../store/AuthStore";
+import { db } from "../firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 const SignUpPage = () => {
   const [email, setEmail] = useState("");
@@ -12,9 +14,19 @@ const SignUpPage = () => {
   const handleSignup = async (e) => {
     e.preventDefault();
     const user = await signupWithEmail(email, password);
+
     if (user) {
-      // Optionally, navigate after signup (or after verification)
-      navigate("/login");
+      try {
+        // ✅ Save role in Firestore
+        await setDoc(doc(db, "users", user.uid), {
+          email: user.email,
+          role: "user", // 👈 default role for all new users
+        });
+
+        navigate("/login");
+      } catch (err) {
+        console.error("Error saving role:", err);
+      }
     }
   };
 
@@ -34,7 +46,9 @@ const SignUpPage = () => {
 
           <form onSubmit={handleSignup} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Email
+              </label>
               <input
                 type="email"
                 placeholder="Enter your email"
@@ -46,7 +60,9 @@ const SignUpPage = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Password</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Password
+              </label>
               <input
                 type="password"
                 placeholder="Enter your password"
@@ -68,7 +84,10 @@ const SignUpPage = () => {
 
           <p className="text-center text-sm text-gray-600 mt-4">
             Already have an account?{" "}
-            <Link to="/login" className="text-[#ff6b4a] font-medium hover:underline">
+            <Link
+              to="/login"
+              className="text-[#ff6b4a] font-medium hover:underline"
+            >
               Log in
             </Link>
           </p>

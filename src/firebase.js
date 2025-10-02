@@ -4,13 +4,12 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyATubfHecgbAPBdKlFQFsSX7ff2AW6KJ60",
-  authDomain: "inventra-147c1.firebaseapp.com",
-  projectId: "inventra-147c1",
-  storageBucket: "inventra-147c1.firebasestorage.app",
-  messagingSenderId: "95537560281",
-  appId: "1:95537560281:web:7f6f9c9cc6e21576c8dcc8",
-  measurementId: "G-QDFSL8DFCN"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 export const app = initializeApp(firebaseConfig);
