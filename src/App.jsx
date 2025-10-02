@@ -1,15 +1,42 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import LoginPage from './Pages/LoginPage';
 import SignUpPage from './Pages/SignUpPage';
 import { AuthProvider } from './Context/AuthProvider';
-export default function App(){
+import Navbar from './components/Navbar';
+import HomePage from './pages/HomePage';
+import Footer from './Components/Footer';
+import Dashboard from './Pages/Dashboard';
+import ProductPage from './Pages/ProductsPage'; // <-- NEW IMPORT: Import the Product Page component
+
+export default function App() {
+  const location = useLocation(); // Hook to get current path
+
+  // Hide Navbar and Footer on login & signup pages
+  const hideHeaderFooter = location.pathname === '/login' || location.pathname === '/signup';
+
   return (
-     <div className="font-sans">
+    <div className="font-sans">
       <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignUpPage/>} />
-          </Routes>
+        {/* Navbar only appears on pages other than login/signup */}
+        {!hideHeaderFooter && <Navbar />} 
+        
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          
+          {/* Dashboard (Product Listing Page) */}
+          <Route path="/dashboard" element={<Dashboard />} /> 
+          
+          {/* NEW ROUTE: Product Description Page (PDP) */}
+          <Route path="/product/:productId" element={<ProductPage />} /> 
+
+          {/* <Route path="/admin" element={<Admin />} /> */}
+          {/* Add other routes below */}
+        </Routes>
+        
+        {/* Footer also hidden on login/signup pages */}
+        {!hideHeaderFooter && <Footer />} 
       </AuthProvider>
     </div>
   );
