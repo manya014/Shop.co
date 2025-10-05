@@ -3,7 +3,8 @@ import LoginPage from "./Pages/LoginPage";
 import SignUpPage from "./Pages/SignUpPage";
 import AdminLoginPage from "./Pages/AdminLoginPage"; // Assuming this exists
 import { AuthProvider } from "./Context/AuthProvider";
-import Navbar from "./Components/Navbar";
+import Navbar from "./Components/Navbar.jsx";
+//hello
 import HomePage from "./pages/HomePage";
 import Footer from "./Components/Footer";
 import Dashboard from "./Pages/Dashboard";
