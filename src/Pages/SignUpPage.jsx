@@ -97,7 +97,7 @@ const SignUpPage = () => {
       {/* Right Illustration */}
       <div className="hidden lg:flex w-1/2 bg-[#FBEDE5] items-center justify-center relative">
         <img
-          src="/Property 1=Group 2014.png"
+          src="/img.png"
           alt="Signup Illustration"
           className="w-[70%] max-h-[80vh] object-contain"
         />

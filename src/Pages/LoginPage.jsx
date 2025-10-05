@@ -130,7 +130,7 @@ const LoginPage = () => {
               <path d="M0 50h800M0 150h800M0 250h800M0 350h800M0 450h800M0 550h800" stroke="#E3D7D1" strokeWidth="2" strokeDasharray="10, 10"/>
               <path d="M100 0v600M200 0v600M300 0v600M400 0v600M500 0v600M600 0v600M700 0v600" stroke="#E3D7D1" strokeWidth="2" strokeDasharray="10, 10"/>
             </svg>
-            <img src="/Property 1=Group 2013.png" alt="" />
+            <img src="/img" alt="" />
           </div>
         </div>
       </div>
