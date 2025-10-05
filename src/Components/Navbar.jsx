@@ -3,7 +3,7 @@ import { FiShoppingCart, FiUser, FiSearch, FiSun, FiMoon } from "react-icons/fi"
 import { IoIosArrowDown } from "react-icons/io";
 import { NavLink, useNavigate } from "react-router-dom";
 import useAuthStore from "../store/AuthStore";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../Context/ThemeContext";
 
 const Navbar = () => {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);

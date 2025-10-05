@@ -11,7 +11,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "firebase/auth";
 import { db, auth, storage } from "../firebase"; // Make sure you export storage from your firebase.js
 import { FaEdit, FaTrash, FaSave, FaTimes } from 'react-icons/fa';
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../Context/ThemeContext";
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;

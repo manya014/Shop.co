@@ -2,7 +2,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import LoginPage from "./Pages/LoginPage";
 import SignUpPage from "./Pages/SignUpPage";
 import AdminLoginPage from "./Pages/AdminLoginPage"; // Assuming this exists
-import { AuthProvider } from "./Context/AuthProvider";
+import { AuthProvider } from "./Context/AuthProvider.jsx";
 import Navbar from "./Components/Navbar.jsx";
 //hello
 import HomePage from "./Pages/HomePage";
@@ -14,7 +14,7 @@ import Checkout from "./Pages/Checkout";
 import Admin from "./Pages/Admin";
 import Logout from "./Pages/Logout";
 import ProtectedRoute from "./Components/ProtectedRoute"; 
-import { ThemeProvider } from "./Context/ThemeContext";// The general auth check component
+import { ThemeProvider } from "./Context/ThemeContext.jsx";// The general auth check component
 
 export default function App() {
   const location = useLocation();
