@@ -5,15 +5,15 @@ import AdminLoginPage from "./Pages/AdminLoginPage"; // Assuming this exists
 import { AuthProvider } from "./Context/AuthProvider";
 import Navbar from "./Components/Navbar.jsx";
 //hello
-import HomePage from "./pages/HomePage";
+import HomePage from "./Pages/HomePage";
 import Footer from "./Components/Footer";
 import Dashboard from "./Pages/Dashboard";
 import ProductPage from "./Pages/ProductsPage";
-import CartPage from "./pages/CartPage";
+import CartPage from "./Pages/CartPage";
 import Checkout from "./Pages/Checkout";
 import Admin from "./Pages/Admin";
 import Logout from "./Pages/Logout";
-import ProtectedRoute from "./components/ProtectedRoute"; 
+import ProtectedRoute from "./Components/ProtectedRoute"; 
 import { ThemeProvider } from "./Context/ThemeContext";// The general auth check component
 
 export default function App() {
