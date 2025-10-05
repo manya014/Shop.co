@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "fi
 import { db, auth } from "../firebase";
 import { useNavigate } from "react-router-dom"; 
 import { FiFilter, FiX } from 'react-icons/fi';
-import { useTheme } from "../Context/ThemeContext";
+import { useTheme } from "../context/ThemeContext";
 
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;

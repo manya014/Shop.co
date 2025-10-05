@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FiShoppingCart, FiUser, FiSearch, FiSun, FiMoon } from "react-icons/fi";
+import { FiShoppingCart, FiUser, FiSearch, FiSun, FiMoon, FiMenu, FiX } from "react-icons/fi";
 import { IoIosArrowDown } from "react-icons/io";
 import { NavLink, useNavigate } from "react-router-dom";
 import useAuthStore from "../store/AuthStore";
@@ -7,6 +7,7 @@ import { useTheme } from "../Context/ThemeContext";
 
 const Navbar = () => {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
@@ -34,20 +35,18 @@ const Navbar = () => {
         <NavLink to="/" className="hover:text-gray-300">SHOP.CO</NavLink>
       </div>
 
-      {/* Center Links */}
-      <div className="flex items-center space-x-12">
-        <div className="hidden lg:flex items-center space-x-8">
-          {navLinks.map((link) => (
-            <div key={link.name} className="flex items-center">
-              <NavLink to={link.path} className={getNavLinkClass}>{link.name}</NavLink>
-              {link.dropdown && <IoIosArrowDown className="text-lg ml-1 cursor-pointer" />}
-            </div>
-          ))}
-        </div>
+      {/* Center Links (desktop) */}
+      <div className="hidden lg:flex items-center space-x-8">
+        {navLinks.map((link) => (
+          <div key={link.name} className="flex items-center">
+            <NavLink to={link.path} className={getNavLinkClass}>{link.name}</NavLink>
+            {link.dropdown && <IoIosArrowDown className="text-lg ml-1 cursor-pointer" />}
+          </div>
+        ))}
       </div>
 
       {/* Right Icons */}
-      <div className="flex items-center space-x-6 text-xl flex-shrink-0 relative">
+      <div className="flex items-center space-x-4 text-xl flex-shrink-0 relative">
         <FiSearch className="cursor-pointer hover:text-gray-400 md:hidden" />
         <NavLink to="/cart" title="Shopping Cart">
           <FiShoppingCart className={`cursor-pointer ${theme === "dark" ? "text-white hover:text-gray-300" : "text-black hover:text-white"}`} />
@@ -88,7 +87,35 @@ const Navbar = () => {
             </div>
           )}
         </div>
+
+        {/* Mobile Menu Toggle */}
+        <button
+          className="lg:hidden p-2 rounded-md hover:bg-gray-700"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          {mobileMenuOpen ? <FiX /> : <FiMenu />}
+        </button>
       </div>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className={`absolute top-full left-0 w-full bg-greenTheme-500 lg:hidden flex flex-col p-4 space-y-2 z-40 ${theme === "dark" ? "bg-gray-900" : "bg-greenTheme-500"}`}>
+          {navLinks.map((link) => (
+            <NavLink
+              key={link.name}
+              to={link.path}
+              className={({ isActive }) =>
+                `font-medium px-4 py-2 rounded hover:bg-green-600 transition-colors ${
+                  isActive ? "text-green-500" : theme === "dark" ? "text-white" : "text-black"
+                }`
+              }
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              {link.name}
+            </NavLink>
+          ))}
+        </div>
+      )}
     </nav>
   );
 };
