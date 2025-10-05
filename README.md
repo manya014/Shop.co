@@ -16,7 +16,7 @@ SHOP.CO is a modern e-commerce web application designed to provide users with a 
 
 ---
 
-## Features
+## Feature
 
 - Browse a wide variety of products: electronics, clothing, makeup, utilities, and accessories  
 - Responsive design for mobile and desktop  
