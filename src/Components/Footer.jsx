@@ -1,30 +1,28 @@
 import React from 'react';
 import { FaFacebookF, FaTwitter, FaInstagram, FaGithub } from 'react-icons/fa';
+import useTheme from '../Hooks/useTheme';
 
-/**
- * A reusable link component.
- * @param {string} href The URL to link to.
- * @param {string} children The link text.
- */
-const FooterLink = ({ href, children }) => (
+const FooterLink = ({ href, children, isDark }) => (
   <li>
-    <a href={href} className="text-gray-600 hover:text-black transition-colors duration-200 text-sm">
+    <a
+      href={href}
+      className={`transition-colors duration-200 text-sm ${
+        isDark ? 'text-stone-300 hover:text-stone-50' : 'text-stone-600 hover:text-stone-900'
+      }`}
+    >
       {children}
     </a>
   </li>
 );
 
-/**
- * A section for links in the footer.
- * @param {string} title The title of the section (e.g., 'COMPANY').
- * @param {Array<Object>} links An array of link objects: [{ text, href }].
- */
-const FooterSection = ({ title, links }) => (
+const FooterSection = ({ title, links, isDark }) => (
   <div>
-    <h3 className="text-lg font-semibold text-black mb-4 uppercase">{title}</h3>
+    <h3 className={`text-lg font-semibold mb-4 uppercase ${isDark ? 'text-stone-50' : 'text-stone-900'}`}>
+      {title}
+    </h3>
     <ul className="space-y-3">
       {links.map((link, index) => (
-        <FooterLink key={index} href={link.href}>
+        <FooterLink key={index} href={link.href} isDark={isDark}>
           {link.text}
         </FooterLink>
       ))}
@@ -32,10 +30,10 @@ const FooterSection = ({ title, links }) => (
   </div>
 );
 
-/**
- * The main Footer component.
- */
 const Footer = () => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+
   const companyLinks = [
     { text: 'About', href: '#' },
     { text: 'Features', href: '#' },
@@ -65,50 +63,76 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-white">
-      {/* Newsletter Section - Black Bar */}
-          {/* Main Footer Content */}
+    <footer className={`${isDark ? 'bg-stone-900' : 'bg-stone-50'} transition-colors duration-300`}>
       <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
-          {/* Shop.co Info & Socials */}
+          {/* SHOP.CO Info & Socials */}
           <div className="col-span-2 md:col-span-1">
-            <h3 className="text-3xl font-extrabold text-black mb-4">SHOP.CO</h3>
-            <p className="text-gray-600 text-sm mb-6 max-w-xs">
+            <h3 className={`text-3xl font-extrabold mb-4 ${isDark ? 'text-stone-50' : 'text-stone-900'}`}>
+              SHOP.CO
+            </h3>
+            <p className={`text-sm mb-6 max-w-xs ${isDark ? 'text-stone-300' : 'text-stone-600'}`}>
               We have clothes that suits your style and which you’re proud to wear. From women to men.
             </p>
             <div className="flex space-x-4">
-              {/* Social Icons - Requires 'react-icons' */}
-              <a href="#" className="p-2 border border-gray-300 rounded-full hover:bg-gray-100 transition-colors duration-200">
-                <FaTwitter className="w-5 h-5 text-gray-600" />
+              <a
+                href="#"
+                className={`p-2 border rounded-full transition-colors duration-200 ${
+                  isDark
+                    ? 'border-stone-700 hover:bg-stone-800'
+                    : 'border-stone-300 hover:bg-stone-100'
+                }`}
+              >
+                <FaTwitter className={`${isDark ? 'text-stone-50' : 'text-stone-600'} w-5 h-5`} />
               </a>
-              <a href="#" className="p-2 border border-gray-300 rounded-full hover:bg-gray-100 transition-colors duration-200">
-                <FaFacebookF className="w-5 h-5 text-gray-600" />
+              <a
+                href="#"
+                className={`p-2 border rounded-full transition-colors duration-200 ${
+                  isDark
+                    ? 'border-stone-700 hover:bg-stone-800'
+                    : 'border-stone-300 hover:bg-stone-100'
+                }`}
+              >
+                <FaFacebookF className={`${isDark ? 'text-stone-50' : 'text-stone-600'} w-5 h-5`} />
               </a>
-              <a href="#" className="p-2 border border-gray-300 rounded-full hover:bg-gray-100 transition-colors duration-200">
-                <FaInstagram className="w-5 h-5 text-gray-600" />
+              <a
+                href="#"
+                className={`p-2 border rounded-full transition-colors duration-200 ${
+                  isDark
+                    ? 'border-stone-700 hover:bg-stone-800'
+                    : 'border-stone-300 hover:bg-stone-100'
+                }`}
+              >
+                <FaInstagram className={`${isDark ? 'text-stone-50' : 'text-stone-600'} w-5 h-5`} />
               </a>
-              <a href="#" className="p-2 border border-gray-300 rounded-full hover:bg-gray-100 transition-colors duration-200">
-                <FaGithub className="w-5 h-5 text-gray-600" />
+              <a
+                href="#"
+                className={`p-2 border rounded-full transition-colors duration-200 ${
+                  isDark
+                    ? 'border-stone-700 hover:bg-stone-800'
+                    : 'border-stone-300 hover:bg-stone-100'
+                }`}
+              >
+                <FaGithub className={`${isDark ? 'text-stone-50' : 'text-stone-600'} w-5 h-5`} />
               </a>
             </div>
           </div>
 
           {/* Link Columns */}
-          <FooterSection title="COMPANY" links={companyLinks} />
-          <FooterSection title="HELP" links={helpLinks} />
-          <FooterSection title="FAQ" links={faqLinks} />
-          <FooterSection title="RESOURCES" links={resourcesLinks} />
+          <FooterSection title="COMPANY" links={companyLinks} isDark={isDark} />
+          <FooterSection title="HELP" links={helpLinks} isDark={isDark} />
+          <FooterSection title="FAQ" links={faqLinks} isDark={isDark} />
+          <FooterSection title="RESOURCES" links={resourcesLinks} isDark={isDark} />
         </div>
       </div>
 
-      {/* Copyright and Payment Methods */}
-      <div className="border-t border-gray-200 py-6 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center text-sm text-gray-600">
-          <p>
+      {/* Copyright */}
+      <div className={`border-t py-6 px-4 sm:px-6 lg:px-8 ${isDark ? 'border-stone-700' : 'border-stone-300'}`}>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center text-sm">
+          <p className={`${isDark ? 'text-stone-300' : 'text-stone-600'}`}>
             Shop.co © 2000-2023, All Rights Reserved
           </p>
           <div className="flex space-x-2 mt-4 md:mt-0">
-            {/* Payment Icons - Using simple colored boxes as placeholders for visual representation */}
             <span className="h-6 w-10 bg-blue-700 text-white flex items-center justify-center rounded text-xs font-bold">VISA</span>
             <span className="h-6 w-10 bg-red-600 text-white flex items-center justify-center rounded text-xs font-bold">MAST</span>
             <span className="h-6 w-10 bg-yellow-400 text-white flex items-center justify-center rounded text-xs font-bold">DISC</span>

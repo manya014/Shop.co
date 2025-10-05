@@ -1,4 +1,3 @@
-// src/store/authStore.js
 import { create } from "zustand";
 import { auth } from "../firebase";
 import {
@@ -8,6 +7,7 @@ import {
   sendPasswordResetEmail,
   createUserWithEmailAndPassword,
   sendEmailVerification,
+  signOut, // import signOut
 } from "firebase/auth";
 
 const googleProvider = new GoogleAuthProvider();
@@ -92,6 +92,19 @@ const useAuthStore = create((set) => ({
     } catch (err) {
       set({ error: err.message });
       return null;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  // ✅ Added logout function
+  logout: async () => {
+    set({ loading: true, error: "", message: "" });
+    try {
+      await signOut(auth);
+      set({ user: null });
+    } catch (err) {
+      set({ error: err.message });
     } finally {
       set({ loading: false });
     }

@@ -5,19 +5,17 @@ import {
   onSnapshot, 
   addDoc, 
   setDoc, 
-  deleteDoc,
-  query,
-  where
+  deleteDoc 
 } from "firebase/firestore";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { onAuthStateChanged, signInAnonymously, signInWithCustomToken } from "firebase/auth";
-import { db, auth } from "../firebase"; // Assuming these are correctly set up
-import { FaEdit, FaTrash, FaPlus, FaSave, FaTimes } from 'react-icons/fa';
+import { db, auth, storage } from "../firebase"; // Make sure you export storage from your firebase.js
+import { FaEdit, FaTrash, FaSave, FaTimes } from 'react-icons/fa';
+import { useTheme } from "../context/ThemeContext";
 
-// Global variables for secure Firestore path construction and initial auth
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-// Initial state for the product form
 const initialProductState = {
   title: "",
   price: 0,
@@ -30,188 +28,149 @@ const initialProductState = {
 export default function Admin() {
   const [products, setProducts] = useState([]);
   const [formData, setFormData] = useState(initialProductState);
-  const [editingId, setEditingId] = useState(null); // ID of the product being edited
+  const [editingId, setEditingId] = useState(null);
   const [authReady, setAuthReady] = useState(false);
   const [userId, setUserId] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const { theme } = useTheme();
 
-  // --- Authentication Setup ---
+  // --- Authentication ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUserId(user.uid);
-        setAuthReady(true);
-      } else if (initialAuthToken) {
-        try {
-          const credential = await signInWithCustomToken(auth, initialAuthToken);
-          setUserId(credential.user.uid);
-        } catch (error) {
-          await signInAnonymously(auth);
-        } finally {
-          setAuthReady(true);
-        }
-      } else {
-        await signInAnonymously(auth);
-        setAuthReady(true);
-      }
+      if (user) setUserId(user.uid), setAuthReady(true);
+      else if (initialAuthToken) {
+        try { const cred = await signInWithCustomToken(auth, initialAuthToken); setUserId(cred.user.uid); }
+        catch { await signInAnonymously(auth); }
+        finally { setAuthReady(true); }
+      } else { await signInAnonymously(auth); setAuthReady(true); }
     });
     return () => unsubscribe();
   }, []);
 
-  // --- Firestore Real-time Listener (Read Products) ---
+  // --- Firestore listener ---
   useEffect(() => {
     if (!authReady || !userId) return;
-
-    // Path: /artifacts/{appId}/users/{userId}/admin_products
-    const productsCollectionRef = collection(db, "artifacts", appId, "users", userId, "admin_products");
-    
-    // Listen for changes in the user's managed products
-    const unsubscribe = onSnapshot(productsCollectionRef, (snapshot) => {
-      const productList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        price: Number(doc.data().price),
-      }));
-      setProducts(productList);
-    }, (error) => {
-      console.error("Error fetching admin products:", error);
+    const refCollection = collection(db, "artifacts", appId, "users", userId, "admin_products");
+    const unsubscribe = onSnapshot(refCollection, snapshot => {
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data(), price: Number(d.data().price) }));
+      setProducts(data);
     });
-
     return () => unsubscribe();
-  }, [authReady, userId]); // Dependency on auth status and user ID
+  }, [authReady, userId]);
 
   // --- Handlers ---
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const showNotification = (message, type = 'success') => {
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const storageRef = ref(storage, `products/${userId}/${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setFormData(prev => ({ ...prev, thumbnail: url }));
+      showNotification("Image uploaded successfully!");
+    } catch (err) {
+      console.error(err);
+      showNotification("Failed to upload image", "error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const showNotification = (message, type='success') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 3000);
   };
-  
-  // --- CRUD Operations ---
 
   const handleSaveProduct = async (e) => {
     e.preventDefault();
-    if (!userId) {
-      showNotification("Authentication required.", 'error');
-      return;
-    }
-    
+    if (!userId) return showNotification("Authentication required", "error");
     try {
-      const productsCollectionRef = collection(db, "artifacts", appId, "users", userId, "admin_products");
-
+      const refCollection = collection(db, "artifacts", appId, "users", userId, "admin_products");
       if (editingId) {
-        // Update existing product
-        const productRef = doc(productsCollectionRef, editingId);
-        await setDoc(productRef, formData);
-        showNotification("Product updated successfully!");
+        await setDoc(doc(refCollection, editingId), formData);
         setEditingId(null);
+        showNotification("Product updated!");
       } else {
-        // Add new product
-        await addDoc(productsCollectionRef, formData);
-        showNotification("Product added successfully!");
+        await addDoc(refCollection, formData);
+        showNotification("Product added!");
       }
-      setFormData(initialProductState); // Clear form
-    } catch (error) {
-      console.error("Error saving product:", error);
-      showNotification("Failed to save product. Check permissions.", 'error');
+      setFormData(initialProductState);
+    } catch {
+      showNotification("Failed to save product", "error");
     }
   };
 
   const handleDeleteProduct = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
-    if (!userId) return;
-
+    if (!window.confirm("Delete this product?")) return;
     try {
-      const productRef = doc(db, "artifacts", appId, "users", userId, "admin_products", id);
-      await deleteDoc(productRef);
-      showNotification("Product deleted.");
-    } catch (error) {
-      console.error("Error deleting product:", error);
-      showNotification("Failed to delete product.", 'error');
+      await deleteDoc(doc(db, "artifacts", appId, "users", userId, "admin_products", id));
+      showNotification("Product deleted");
+    } catch {
+      showNotification("Failed to delete product", "error");
     }
   };
 
-  const handleEditClick = (product) => {
-    setFormData(product);
-    setEditingId(product.id);
-    window.scrollTo(0, 0); // Scroll to form
-  };
+  const handleEditClick = (p) => { setFormData(p); setEditingId(p.id); window.scrollTo(0,0); };
+  const handleCancelEdit = () => { setFormData(initialProductState); setEditingId(null); };
 
-  const handleCancelEdit = () => {
-    setFormData(initialProductState);
-    setEditingId(null);
-  };
+  if (!authReady) return (
+    <div className={`flex justify-center items-center h-screen ${theme==='dark'?'bg-gray-900 text-white':'bg-white text-black'}`}>Loading...</div>
+  );
 
-  // --- Render ---
-
-  if (!authReady) {
-    return (
-      <div className="flex w-full justify-center items-center h-screen text-lg">
-        Loading authentication...
-      </div>
-    );
-  }
-  
-  // Admin UI
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      {/* Notification Bar */}
+    <div className={`min-h-screen py-12 px-4 sm:px-6 lg:px-8 ${theme==='dark'?'bg-gray-900 text-white':'bg-white text-black'}`}>
+      
+      {/* Notification */}
       {notification && (
-          <div 
-              className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-xl text-white ${
-                  notification.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-              }`}
-          >
-              {notification.message}
-          </div>
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl font-bold ${notification.type==='success'?'bg-green-600':'bg-red-600'} text-white`}>
+          {notification.message}
+        </div>
       )}
 
       <header className="max-w-4xl mx-auto mb-10">
-        <h1 className="text-4xl font-extrabold text-black">Product Management Dashboard</h1>
-        <p className="text-gray-600 mt-2">Manage products in your private Firestore collection.</p>
-        <p className="text-xs mt-4 text-gray-500">
-            Current User ID (Admin Context): <span className="font-mono">{userId}</span>
-        </p>
+        <h1 className="text-4xl font-extrabold">{editingId ? "Edit Product" : "Product Management"}</h1>
       </header>
 
-      {/* --- Add/Edit Product Form --- */}
-      <div className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-2xl mb-12">
-        <h2 className="text-2xl font-bold mb-6 flex items-center">
-          {editingId ? <><FaEdit className="mr-2" /> Edit Product</> : <><FaPlus className="mr-2" /> Add New Product</>}
-        </h2>
-        
+      {/* Product Form */}
+      <div className={`max-w-4xl mx-auto p-8 shadow-2xl mb-12 rounded-xl
+        ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
         <form onSubmit={handleSaveProduct} className="space-y-4">
           <input
-            type="text"
             name="title"
-            placeholder="Product Title"
+            placeholder="Title"
             value={formData.title}
             onChange={handleInputChange}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
             required
+            className={`w-full p-3 rounded-lg border
+              ${theme === 'dark' ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-300 bg-gray-50 text-black'} font-bold`}
           />
           <textarea
             name="description"
             placeholder="Description"
             value={formData.description}
             onChange={handleInputChange}
-            rows="3"
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            rows={3}
+            className={`w-full p-3 rounded-lg border
+              ${theme === 'dark' ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-300 bg-gray-50 text-black'} font-bold`}
             required
           />
           <div className="grid grid-cols-2 gap-4">
             <input
               type="number"
               name="price"
-              placeholder="Price ($)"
+              placeholder="Price"
               value={formData.price}
               onChange={handleInputChange}
-              className="p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              className={`p-3 rounded-lg border
+                ${theme === 'dark' ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-300 bg-gray-50 text-black'} font-bold`}
               required
             />
             <input
@@ -220,86 +179,68 @@ export default function Admin() {
               placeholder="Stock"
               value={formData.stock}
               onChange={handleInputChange}
-              className="p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              className={`p-3 rounded-lg border
+                ${theme === 'dark' ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-300 bg-gray-50 text-black'} font-bold`}
               required
             />
           </div>
-          <input
-            type="text"
-            name="thumbnail"
-            placeholder="Image URL (Thumbnail)"
-            value={formData.thumbnail}
-            onChange={handleInputChange}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-          />
           <input
             type="text"
             name="category"
             placeholder="Category"
             value={formData.category}
             onChange={handleInputChange}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full p-3 rounded-lg border
+              ${theme === 'dark' ? 'border-gray-700 bg-gray-700 text-white' : 'border-gray-300 bg-gray-50 text-black'} font-bold`}
           />
+
+          {/* File Upload */}
+          <div>
+            <label className="block mb-2 font-semibold">Upload Image:</label>
+            <input type="file" accept="image/*" onChange={handleFileChange} disabled={uploading} className="w-full" />
+            {uploading && <p className="text-sm text-gray-500 mt-1">Uploading...</p>}
+            {formData.thumbnail && <img src={formData.thumbnail} alt="Preview" className="mt-2 w-32 h-32 object-cover rounded-lg" />}
+          </div>
 
           <div className="flex space-x-4 pt-2">
             <button
               type="submit"
-              className={`flex-1 flex items-center justify-center p-3 rounded-full text-white font-semibold transition-colors ${editingId ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}
+              className="flex-1 flex items-center justify-center p-3 rounded-full bg-black text-white font-bold hover:bg-gray-700"
             >
-              <FaSave className="mr-2" /> {editingId ? 'Update Product' : 'Add Product'}
+              <FaSave className="mr-2" /> {editingId ? "Update Product" : "Add Product"}
             </button>
-
             {editingId && (
               <button
                 type="button"
                 onClick={handleCancelEdit}
-                className="flex items-center justify-center p-3 rounded-full bg-gray-300 text-gray-800 font-semibold hover:bg-gray-400 transition-colors"
+                className="flex-1 flex items-center justify-center p-3 rounded-full bg-gray-500 text-white font-bold hover:bg-gray-600"
               >
-                <FaTimes className="mr-2" /> Cancel Edit
+                <FaTimes className="mr-2" /> Cancel
               </button>
             )}
           </div>
         </form>
       </div>
 
-      {/* --- Product List --- */}
+      {/* Product List */}
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-3xl font-bold mb-6">Managed Products ({products.length})</h2>
-        
+        <h2 className="text-3xl font-extrabold mb-6">Managed Products ({products.length})</h2>
         {products.length === 0 ? (
-          <p className="text-gray-500 p-6 bg-white rounded-xl shadow">No products found. Use the form above to add your first product.</p>
+          <p className={`p-6 rounded-xl shadow ${theme==='dark'?'bg-gray-800 text-gray-200':'bg-gray-200 text-black'}`}>
+            No products found. Add your first product above.
+          </p>
         ) : (
           <div className="space-y-4">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="flex items-center bg-white p-4 rounded-xl shadow hover:shadow-md transition duration-200 border border-gray-100"
-              >
-                <img
-                  src={product.thumbnail}
-                  alt={product.title}
-                  className="w-16 h-16 object-cover rounded-lg flex-shrink-0 mr-4"
-                />
+            {products.map(p => (
+              <div key={p.id} className={`flex items-center p-4 rounded-xl shadow ${theme==='dark'?'bg-gray-800':'bg-gray-200'}`}>
+                <img src={p.thumbnail} alt={p.title} className="w-16 h-16 object-cover rounded-lg mr-4" />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-lg truncate">{product.title}</h3>
-                  <p className="text-sm text-gray-500">${product.price.toFixed(2)} | Stock: {product.stock}</p>
+                  <h3 className="font-bold truncate">{p.title}</h3>
+                  <p className="text-sm">{p.price.toFixed(2)}$ | Stock: {p.stock}</p>
                 </div>
-
-                <div className="flex space-x-3 flex-shrink-0">
-                  <button
-                    onClick={() => handleEditClick(product)}
-                    className="p-3 bg-yellow-500 text-white rounded-full hover:bg-yellow-600 transition-colors"
-                    title="Edit Product"
-                  >
-                    <FaEdit className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteProduct(product.id)}
-                    className="p-3 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
-                    title="Delete Product"
-                  >
-                    <FaTrash className="w-4 h-4" />
-                  </button>
+                <div className="flex space-x-3">
+                  <button onClick={()=>handleEditClick(p)} className="p-2 bg-yellow-500 text-white rounded-full hover:bg-yellow-600"><FaEdit /></button>
+                  <button onClick={()=>handleDeleteProduct(p.id)} className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700"><FaTrash /></button>
                 </div>
               </div>
             ))}
@@ -309,4 +250,3 @@ export default function Admin() {
     </div>
   );
 }
-

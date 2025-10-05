@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+html {
+  transition: background 0.3s, color 0.3s;
+}
+
+.dark html {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* Fix images */
+img {
+  transition: transform 0.3s;
+}
